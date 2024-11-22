@@ -1,0 +1,331 @@
+Develop a Spring Boot application that manages College and Student data, considering a one-to-many association between College and Students. A College has a collegeld and name. A Student has an id, name, courseTaken, and marks. There are various colleges and none of the students can take admission to more than one college.
+
+Tasks:
+
+Model Implementation:
+
+1. Create a College entity with fields: collegeld (type Long), name (type String).
+
+2. Create a Student entity with fields: id (type Long), name (type String), courseTaken (type String), and marks (type int).
+
+3. Implement a one-to-many association between College and Students.
+
+<<< Repository Implementation:
+
+1. Implement a College Repository interface that extends JpaRepository to manage the CRUD operations for the College entity.
+
+Implement a StudentRepository interface that extends JpaRepository to gopur the CRUD operations for the Student entity
+
+Becvice Imatiementation.
+
+Segment a service class named CollegeService that contains methods for the Following operamone
+
+1. createCollege(College college): Create a College object.
+
+2. createStudent(Long collegeld, Student student): Create a Student object and assign them to a College. collegeld is passed as a path variable.
+
+3. getAllColleges(): Fetch all the colleges and the corresponding students data.
+
+4. getStudentsByCollegeName(String collegeName): Fetch all the students for a particular college based on their name in descending order.
+
+Controller Implementation:
+
+<<< Implement a controller named CollegeController using the @RestController annotation. Use the @Autowired annotation to inject the CollegeService instance into the controller.
+
+
+Map the operations to appropriate endpoints:
+
+a. POST/colleges: Create a College
+
+b. POST/colleges/{collegeld}/students: Create a College. collegeld is passed as a Student object and assign them to a path variable.gam
+
+c. GET/colleges: Fetch all the colleges and the corresponding students data.
+
+d. GET /colleges/students?collegeName={collegeName): Fetch all the students for a particular college based on their name in descending order.
+
+Test Cases
+
+
+Your implementation will be evaluated against the following criteria:
+
+1. Create College: Sending a POST request to /colleges with a sample College JSON should save the College to the database and return the saved College object.
+
+2. Create Student and Assign College: Sending a POST request to /colleges/{collegeld}/students with a sample Student JSON and collegeld should save the Student to the database, assign the Student to the specified College, and return the saved Student object.
+
+3. Retrieve All Colleges and Students: Sending a GET request to /colleges should return a list of all College objects and their corresponding Student data.
+
+4. Retrieve Students By College Name: Sending a GET request to /colleges/students?collegeName={collegeName} should return a list of all Student objects associated with the specified collegeName, ordered by their name in descending order
+
+
+Answer:
+
+
+repository implementation:
+
+collegerepository.java:
+
+package com.example.collegeapp.repository;
+
+import com.example.collegeapp.model.College;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface CollegeRepository extends JpaRepository<College, Long> {
+}
+
+
+studentrepository.java:
+
+
+package com.example.collegeapp.repository;
+
+import com.example.collegeapp.model.Student;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public interface StudentRepository extends JpaRepository<Student, Long> {
+
+    List<Student> findByCollegeNameOrderByNameDesc(String collegeName);
+}
+
+
+Service implementation:
+
+collegeService.java:
+
+package com.example.collegeapp.service;
+
+import com.example.collegeapp.model.College;
+import com.example.collegeapp.model.Student;
+import com.example.collegeapp.repository.CollegeRepository;
+import com.example.collegeapp.repository.StudentRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+public class CollegeService {
+
+    @Autowired
+    private CollegeRepository collegeRepository;
+
+    @Autowired
+    private StudentRepository studentRepository;
+
+    // Create a new college
+    public College createCollege(College college) {
+        return collegeRepository.save(college);
+    }
+
+    // Create a new student and assign to a college
+    public Student createStudent(Long collegeId, Student student) {
+        Optional<College> college = collegeRepository.findById(collegeId);
+        if (college.isPresent()) {
+            student.setCollege(college.get());
+            return studentRepository.save(student);
+        } else {
+            throw new RuntimeException("College not found");
+        }
+    }
+
+    // Fetch all colleges and students
+    public List<College> getAllColleges() {
+        return collegeRepository.findAll();
+    }
+
+    // Fetch all students by college name in descending order
+    public List<Student> getStudentsByCollegeName(String collegeName) {
+        return studentRepository.findByCollegeNameOrderByNameDesc(collegeName);
+    }
+}
+
+
+controller implementation
+
+collegecontroller.java:
+
+package com.example.collegeapp.controller;
+
+import com.example.collegeapp.model.College;
+import com.example.collegeapp.model.Student;
+import com.example.collegeapp.service.CollegeService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/colleges")
+public class CollegeController {
+
+    @Autowired
+    private CollegeService collegeService;
+
+    // Create a new college
+    @PostMapping
+    public ResponseEntity<College> createCollege(@RequestBody College college) {
+        College savedCollege = collegeService.createCollege(college);
+        return new ResponseEntity<>(savedCollege, HttpStatus.CREATED);
+    }
+
+    // Create a new student and assign to a college
+    @PostMapping("/{collegeId}/students")
+    public ResponseEntity<Student> createStudent(@PathVariable Long collegeId, @RequestBody Student student) {
+        Student savedStudent = collegeService.createStudent(collegeId, student);
+        return new ResponseEntity<>(savedStudent, HttpStatus.CREATED);
+    }
+
+    // Fetch all colleges and their students
+    @GetMapping
+    public ResponseEntity<List<College>> getAllColleges() {
+        List<College> colleges = collegeService.getAllColleges();
+        return new ResponseEntity<>(colleges, HttpStatus.OK);
+    }
+
+    // Fetch all students by college name in descending order
+    @GetMapping("/students")
+    public ResponseEntity<List<Student>> getStudentsByCollegeName(@RequestParam String collegeName) {
+        List<Student> students = collegeService.getStudentsByCollegeName(collegeName);
+        return new ResponseEntity<>(students, HttpStatus.OK);
+    }
+}
+
+
+model implementation:
+
+student.java:
+
+package com.example.collegeapp.model;
+
+import javax.persistence.*;
+
+@Entity
+public class Student {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String name;
+    private String courseTaken;
+    private int marks;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "college_id")
+    private College college;
+
+    // Getter and Setter for college
+    public College getCollege() {
+        return college;
+    }
+
+    public void setCollege(College college) {
+        this.college = college;
+    }
+
+    // Other Getters and Setters
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getCourseTaken() {
+        return courseTaken;
+    }
+
+    public void setCourseTaken(String courseTaken) {
+        this.courseTaken = courseTaken;
+    }
+
+    public int getMarks() {
+        return marks;
+    }
+
+    public void setMarks(int marks) {
+        this.marks = marks;
+    }
+}
+
+
+college.java:
+
+package com.example.collegeapp.model;
+
+import javax.persistence.*;
+import java.util.ArrayList;
+import java.util.List;
+
+@Entity
+public class College {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long collegeId;
+
+    private String name;
+
+    @OneToMany(mappedBy = "college", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Student> students = new ArrayList<>();
+
+    // Getters and Setters
+
+    public Long getCollegeId() {
+        return collegeId;
+    }
+
+    public void setCollegeId(Long collegeId) {
+        this.collegeId = collegeId;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public List<Student> getStudents() {
+        return students;
+    }
+
+    public void setStudents(List<Student> students) {
+        this.students = students;
+    }
+
+    // Helper method to add a student to the college
+    public void addStudent(Student student) {
+        students.add(student);
+        student.setCollege(this);
+    }
+
+    // Helper method to remove a student from the college
+    public void removeStudent(Student student) {
+        students.remove(student);
+        student.setCollege(null);
+    }
+}
+
+
+
+
+
